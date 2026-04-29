@@ -47,7 +47,7 @@ function App() {
 		if (!file) return;
 
 		setIsUploading(true);
-		setStatus("Analyzing PDF (this may take about 3 minutes)...");
+		setStatus("Analyzing PDF (this may take a few minutes)...");
 
 		const formData = new FormData();
 		formData.append("file", file);
@@ -102,11 +102,9 @@ function App() {
 		<main className="container mx-auto py-10 flex flex-col gap-8">
 			<Card>
 				<CardHeader>
-					<CardTitle className="text-2xl font-bold">
-						PDF Plans Processor
-					</CardTitle>
+					<CardTitle className="text-2xl font-bold">Plan Search</CardTitle>
 					<CardDescription>
-						Upload your plans pdf to automatically map plan numbers to pages.
+						Upload your plans pdf to enable searching by plan number.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-4">
@@ -151,9 +149,7 @@ function App() {
 					{Object.keys(planMappings).length > 0 && !isUploading && (
 						<div className="flex items-center gap-2 ">
 							<CheckCircle2 className="w-4 h-4" />
-							<span className="text-xs font-semibold uppercase tracking-wider">
-								Plan mappings complete and saved locally.
-							</span>
+							<span>Plan mappings complete and saved locally.</span>
 						</div>
 					)}
 				</CardContent>
