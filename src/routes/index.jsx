@@ -7,6 +7,8 @@ import {
 	Upload,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -71,6 +73,7 @@ function App() {
 					}
 				});
 				setPlanMappings(mappings);
+				toast("Plan numbers mapped successfully.");
 				localStorage.setItem("pdfPlanMappings", JSON.stringify(mappings));
 				setStatus("Plan numbers mapped successfully!");
 			}
@@ -83,6 +86,7 @@ function App() {
 	};
 
 	const handleSearch = (e) => {
+		toast("TEst");
 		e.preventDefault();
 		const targetPage = planMappings[searchQuery];
 		if (targetPage && iframeRef.current) {
@@ -145,28 +149,11 @@ function App() {
 							{status}
 						</p>
 					)}
-
-					{Object.keys(planMappings).length > 0 && !isUploading && (
-						<div className="flex items-center gap-2 ">
-							<CheckCircle2 className="w-4 h-4" />
-							<span>Plan mappings complete and saved locally.</span>
-						</div>
-					)}
 				</CardContent>
 			</Card>
 
 			<div className="space-y-4">
 				<div>
-					<Card>
-						<CardHeader>
-							<CardTitle>Viewer</CardTitle>
-							<CardDescription>
-								Go to More Options and Open your plans pdf once it has been
-								analyzed.
-							</CardDescription>
-						</CardHeader>
-					</Card>
-
 					{Object.keys(planMappings).length > 0 && (
 						<form
 							onSubmit={handleSearch}
