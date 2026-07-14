@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,18 @@ function App() {
 			alert(`Plan number "${searchQuery}" not found.`);
 		}
 	};
+
+	useEffect(() => {
+		const request = window.indexedDB.open("TestDB", 3);
+
+		request.onerror = (event) => {
+			console.log(event);
+		};
+
+		request.onsuccess = (event) => {
+			console.log(event);
+		};
+	}, []);
 
 	return (
 		<main className="container mx-auto py-10 flex flex-col gap-8">
