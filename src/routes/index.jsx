@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/")({ component: App });
@@ -31,10 +31,12 @@ function App() {
 		if (targetPage && iframeRef.current) {
 			const viewerApp = iframeRef.current.contentWindow?.PDFViewerApplication;
 			if (viewerApp) {
-				viewerApp.page = targetPage;
+				viewerApp.initializedPromise.then(() => {
+					viewerApp.page = targetPage;
+				});
 			} else {
 				// Fallback to URL hash if API is not immediately accessible
-				iframeRef.current.src = `${VIEWER_URL}#page=${targetPage}`;
+				iframeRef.current.src = `${VIEWER_SRC}#page=${targetPage}`;
 			}
 		} else if (searchQuery) {
 			alert(`Plan number "${searchQuery}" not found.`);

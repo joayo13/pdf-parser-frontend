@@ -38,6 +38,21 @@ If you prefer not to use Tailwind CSS:
 3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
 4. Uninstall the packages: `pnpm add @tailwindcss/vite tailwindcss --dev`
 
+## PDF Viewer (vendored pdf.js)
+
+The app embeds the prebuilt [pdf.js](https://mozilla.github.io/pdf.js/) viewer **v5.6.205**, vendored at `public/pdfjs` from the official prebuilt distribution and loaded in an iframe (`/pdfjs/web/viewer.html?file=...`). It must live in `public/` — the prebuilt viewer is served as-is and cannot go through Vite's bundler.
+
+The distribution was trimmed to reduce deploy size (~22MB → ~10MB). When upgrading pdf.js, repeat these steps on the fresh distribution:
+
+1. Delete source maps: `build/*.map`
+2. Delete `web/debugger.css` and `web/debugger.mjs`
+3. Delete all locales except `web/locale/en-US/`
+4. Rewrite `web/locale/locale.json` to `{"en-us":"en-US/viewer.ftl"}`
+
+Kept intentionally: `web/cmaps/`, `web/standard_fonts/`, `web/iccs/` (needed for PDFs with CJK or non-embedded fonts).
+
+Local modifications to the viewer itself (custom toolbar entries, `custom.css`, etc.) should be listed here so they can be re-applied after upgrades. Current modifications: none.
+
 ## Linting & Formatting
 
 This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
