@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-export const Route = createFileRoute("/")({ component: App });
+export const Route = createFileRoute("/")({ component: App, ssr: false });
 
 const VIEWER_URL = `/pdfjs/web/viewer.html`;
 const PLAN_PDF_URL = "/plans/S47411 PLANS_230818_125042_260405_191111.pdf";
@@ -43,16 +43,43 @@ function App() {
 		}
 	};
 
+	// Create a db - ref to access the database after creation
+	const dbRef = useRef(null);
+
 	useEffect(() => {
-		const request = window.indexedDB.open("TestDB", 3);
+		const storeName = "localFiles";
+		const storeKey = "fileName";
 
-		request.onerror = (event) => {
-			console.log(event);
+		const initIndexedDb = (dbName, stores) => {
+			return new Promise((resolve, reject) => {
+				const request = indexedDB.open(dbName, 3);
+				request.onerror = (event) => {
+					reject(event.target.error);
+				};
+				request.onsuccess = (event) => {
+					resolve(event.target.result);
+				};
+				request.onupgradeneeded = (event) => {
+					stores.forEach((store) => {
+						const objectStore = event.target.result.createObjectStore(
+							store.name,
+							{
+								keyPath: store.keyPath,
+							},
+						);
+						objectStore.createIndex(store.keyPath, store.keyPath, {
+							unique: true,
+						});
+					});
+				};
+			});
 		};
 
-		request.onsuccess = (event) => {
-			console.log(event);
-		};
+		initIndexedDb("my-db", [{ name: storeName, keyPath: storeKey }]).then(
+			(db) => {
+				dbRef.current = db;
+			},
+		);
 	}, []);
 
 	return (
