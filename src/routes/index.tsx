@@ -1,86 +1,119 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Search } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { PdfSwitcher } from "@/components/pdf-switcher";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+	ensureOriginalSeeded,
+	getPdf,
+	listPdfs,
+	ORIGINAL_PDF_ID,
+	type PdfEntryMeta,
+	savePdf,
+} from "@/lib/pdf-store";
 
 export const Route = createFileRoute("/")({ component: App, ssr: false });
 
-const VIEWER_URL = `/pdfjs/web/viewer.html`;
+const VIEWER_URL = "/pdfjs/web/viewer.html";
 const PLAN_PDF_URL = "/plans/S47411 PLANS_230818_125042_260405_191111.pdf";
 
 // TODO: replace with the real ordered plan-number list.
 // Index i (0-based) here means the number appears on PDF page i + 1.
 const PLAN_NUMBERS = [201, 601, 301];
 
-const PLAN_MAPPINGS = PLAN_NUMBERS.reduce((acc, planNum, index) => {
-	if (planNum) acc[planNum.toString()] = index + 1;
-	return acc;
-}, {});
+const PLAN_MAPPINGS = PLAN_NUMBERS.reduce<Record<string, number>>(
+	(acc, planNum, index) => {
+		if (planNum) acc[planNum.toString()] = index + 1;
+		return acc;
+	},
+	{},
+);
 
-const VIEWER_SRC = `${VIEWER_URL}?file=${encodeURIComponent(PLAN_PDF_URL)}`;
+interface PdfViewerWindow extends Window {
+	PDFViewerApplication?: {
+		initializedPromise: Promise<void>;
+		page: number;
+	};
+}
 
 function App() {
 	const [searchQuery, setSearchQuery] = useState("");
-	const iframeRef = useRef(null);
+	const iframeRef = useRef<HTMLIFrameElement>(null);
 
-	const handleSearch = (e) => {
+	const [entries, setEntries] = useState<PdfEntryMeta[]>([]);
+	const [selectedId, setSelectedId] = useState(ORIGINAL_PDF_ID);
+	const [isSeeded, setIsSeeded] = useState(false);
+	const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+	const refreshEntries = useCallback(async () => {
+		setEntries(await listPdfs());
+	}, []);
+
+	// Seed the auto-provided original PDF into the store once so it
+	// participates in the same list/switch/offline path as any custom set.
+	useEffect(() => {
+		ensureOriginalSeeded(PLAN_PDF_URL)
+			.then(() => refreshEntries())
+			.catch((error) => {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Failed to load the original plan set",
+				);
+			})
+			.finally(() => setIsSeeded(true));
+	}, [refreshEntries]);
+
+	useEffect(() => {
+		if (!isSeeded) return;
+
+		let cancelled = false;
+		let currentUrl: string | null = null;
+
+		getPdf(selectedId).then((result) => {
+			if (cancelled || !result) return;
+			currentUrl = URL.createObjectURL(result.blob);
+			setObjectUrl(currentUrl);
+		});
+
+		return () => {
+			cancelled = true;
+			if (currentUrl) URL.revokeObjectURL(currentUrl);
+		};
+	}, [selectedId, isSeeded]);
+
+	const viewerSrc = objectUrl
+		? `${VIEWER_URL}?file=${encodeURIComponent(objectUrl)}`
+		: null;
+
+	const handleSearch = (e: FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		const targetPage = PLAN_MAPPINGS[searchQuery];
-		if (targetPage && iframeRef.current) {
-			const viewerApp = iframeRef.current.contentWindow?.PDFViewerApplication;
+		if (targetPage && iframeRef.current && viewerSrc) {
+			const viewerApp = (
+				iframeRef.current.contentWindow as PdfViewerWindow | null
+			)?.PDFViewerApplication;
 			if (viewerApp) {
 				viewerApp.initializedPromise.then(() => {
 					viewerApp.page = targetPage;
 				});
 			} else {
 				// Fallback to URL hash if API is not immediately accessible
-				iframeRef.current.src = `${VIEWER_SRC}#page=${targetPage}`;
+				iframeRef.current.src = `${viewerSrc}#page=${targetPage}`;
 			}
 		} else if (searchQuery) {
 			alert(`Plan number "${searchQuery}" not found.`);
 		}
 	};
 
-	// Create a db - ref to access the database after creation
-	const dbRef = useRef(null);
-
-	useEffect(() => {
-		const storeName = "localFiles";
-		const storeKey = "fileName";
-
-		const initIndexedDb = (dbName, stores) => {
-			return new Promise((resolve, reject) => {
-				const request = indexedDB.open(dbName, 3);
-				request.onerror = (event) => {
-					reject(event.target.error);
-				};
-				request.onsuccess = (event) => {
-					resolve(event.target.result);
-				};
-				request.onupgradeneeded = (event) => {
-					stores.forEach((store) => {
-						const objectStore = event.target.result.createObjectStore(
-							store.name,
-							{
-								keyPath: store.keyPath,
-							},
-						);
-						objectStore.createIndex(store.keyPath, store.keyPath, {
-							unique: true,
-						});
-					});
-				};
-			});
-		};
-
-		initIndexedDb("my-db", [{ name: storeName, keyPath: storeKey }]).then(
-			(db) => {
-				dbRef.current = db;
-			},
-		);
-	}, []);
+	const handleAdd = async (file: File) => {
+		await savePdf({ name: file.name, blob: file, parentId: null });
+		await refreshEntries();
+	};
 
 	return (
 		<main className="container mx-auto py-10 flex flex-col gap-8">
@@ -108,15 +141,28 @@ function App() {
 					)}
 				</div>
 
+				<PdfSwitcher
+					entries={entries}
+					selectedId={selectedId}
+					onSelect={setSelectedId}
+					onAdd={handleAdd}
+				/>
+
 				<Card className="overflow-hidden bg-muted">
-					<iframe
-						ref={iframeRef}
-						title="pdf-viewer"
-						src={VIEWER_SRC}
-						width="100%"
-						height="800px"
-						className="border-none"
-					/>
+					{viewerSrc ? (
+						<iframe
+							ref={iframeRef}
+							title="pdf-viewer"
+							src={viewerSrc}
+							width="100%"
+							height="800px"
+							className="border-none"
+						/>
+					) : (
+						<div className="flex h-200 items-center justify-center text-sm text-muted-foreground">
+							Loading plan set...
+						</div>
+					)}
 				</Card>
 			</div>
 		</main>

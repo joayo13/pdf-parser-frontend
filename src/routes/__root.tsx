@@ -1,6 +1,7 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 
@@ -25,12 +26,29 @@ export const Route = createRootRoute({
 				rel: "stylesheet",
 				href: appCss,
 			},
+			{
+				rel: "manifest",
+				href: "/manifest.json",
+			},
 		],
 	}),
 	shellComponent: RootDocument,
 });
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+	useEffect(() => {
+		if (import.meta.env.PROD && "serviceWorker" in navigator) {
+			navigator.serviceWorker.register("/sw.js").catch(() => {
+				// Offline support is a progressive enhancement — a failed
+				// registration shouldn't block the app from working online.
+			});
+		}
+
+		// One-time cleanup of the old, unused IndexedDB scaffolding this app
+		// briefly created before switching to the Cache Storage-backed pdf-store.
+		indexedDB.deleteDatabase("my-db");
+	}, []);
+
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
